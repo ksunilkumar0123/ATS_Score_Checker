@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resume Scorer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Resume Scorer</h1>
+        <form id="uploadForm" enctype="multipart/form-data">
+            <label for="job_description">Job Description:</label><br>
+            <textarea id="job_description" name="job_description" rows="10" cols="50" placeholder="Enter job description here..."></textarea><br>
+            <label for="resume">Upload Resume:</label><br>
+            <input type="file" id="resume" name="resume" accept=".pdf, .docx"><br><br>
+            <button type="submit">Submit</button>
+        </form>
+        <div id="results" class="hidden">
+            <p id="score"></p>
+            <!-- Tabs -->
+            <div class="tabs">
+                <button class="tab-button active" onclick="showResults('missing')">Missing Keywords</button>
+                <button class="tab-button" onclick="showResults('found')">Found Keywords</button>
+            </div>
+            <!-- Results sections -->
+            <div id="missing" class="tab-content">
+                <h2>Missing Keywords</h2>
+                <p>The following keywords and skills were in the job description, but were not found on your resume. If you have these skills, add them into your resume to increase your relevancy score. You can also exclude skills from the scoring.</p>
+                <div class="scrollable-table">
+                    <table id="missing_keywords_table">
+                        <thead>
+                            <tr>
+                                <th>Keyword or Skill</th>
+                                <th>Count</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+            <div id="found" class="tab-content hidden">
+                <h2>Found Keywords</h2>
+                <p>Well done! Recruiters at your target company are specifically looking for these important keywords in your resume and you have included them.</p>
+                <div class="scrollable-table">
+                    <table id="found_keywords_table">
+                        <thead>
+                            <tr>
+                                <th>Keyword or Skill</th>
+                                <th>Count</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
