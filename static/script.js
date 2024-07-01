@@ -1,85 +1,264 @@
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('uploadForm').onsubmit = async function (e) {
-        e.preventDefault(); // Prevent the default form submission
+        e.preventDefault();
         let formData = new FormData(this);
 
         try {
-            console.log('Submitting form'); // Debug log
-
             let response = await fetch('/upload', {
                 method: 'POST',
                 body: formData
             });
 
-            console.log('Response Status:', response.status); // Debug log
-
             if (response.ok) {
                 let result = await response.json();
-                console.log('Result:', result); // Debug log
-
                 if (result.error) {
                     alert(result.error);
                 } else {
-                    // Display the score with color based on value
-                    const scoreElement = document.getElementById('score');
-                    const score = result.score.toFixed(2); // Display score as a percentage
-                    scoreElement.innerHTML = `<span class="score" style="color: ${getScoreColor(score)};">Resume Score: ${score}%</span>`;
-
-                    // Show the results section
-                    document.getElementById('results').classList.remove('hidden');
-
-                    // Update tables with the new data
-                    updateTable('found_keywords_table', result.found_keywords);
-                    updateTable('missing_keywords_table', result.missing_keywords);
+                    updateResults(result);
                 }
             } else {
-                alert('Failed to submit form');
-                console.error('Response status:', response.status);
+                alert('Error uploading file');
             }
         } catch (error) {
             console.error('Error:', error);
-            alert('An error occurred. Please try again.');
+            alert('An error occurred while uploading the file.');
         }
     };
 });
 
 function getScoreColor(score) {
-    // Ensure the score is within the range [0, 100]
-    score = Math.min(Math.max(score, 0), 100);
-    
-    // Convert score to color from red (low) to green (high)
-    const green = Math.min(255, Math.round((score / 100) * 255));
-    const red = 255 - green;
+    const red = Math.min(255, 255 - Math.round(score * 2.55));
+    const green = Math.min(255, Math.round(score * 2.55));
     return `rgb(${red}, ${green}, 0)`;
 }
 
-function updateTable(tableId, data) {
-    let tableBody = document.querySelector(`#${tableId} tbody`);
-    tableBody.innerHTML = '';
-    for (const [keyword, count] of Object.entries(data)) {
-        let row = document.createElement('tr');
-        let keywordCell = document.createElement('td');
+function updateTable(table, data, tableType) {
+    table.innerHTML = '';
+    Object.keys(data).forEach(keyword => {
+        let row = table.insertRow();
+        let keywordCell = row.insertCell(0);
+        let countCell = row.insertCell(1);
+        let deleteCell = row.insertCell(2);
+
         keywordCell.textContent = keyword;
-        let countCell = document.createElement('td');
-        countCell.textContent = count;
-        row.appendChild(keywordCell);
-        row.appendChild(countCell);
-        tableBody.appendChild(row);
+        countCell.textContent = data[keyword];
+        deleteCell.innerHTML = `<button onclick="deleteKeyword('${keyword}', '${tableType}')">Delete</button>`;
+    });
+}
+
+function updateResults(result) {
+    const scoreElement = document.getElementById('score');
+    const score = result.score.toFixed(2); // Display score as a percentage
+    scoreElement.innerHTML = `<span class="score" style="color: ${getScoreColor(score)};">Resume Score: ${score}%</span>`;
+    scoreElement.style.display = 'block';
+
+    const missingKeywordsTable = document.getElementById('missing_keywords_table').getElementsByTagName('tbody')[0];
+    const foundKeywordsTable = document.getElementById('found_keywords_table').getElementsByTagName('tbody')[0];
+
+    updateTable(missingKeywordsTable, result.missing_keywords, 'missing');
+    updateTable(foundKeywordsTable, result.found_keywords, 'found');
+
+    document.getElementById('results').classList.remove('hidden');
+}
+
+async function deleteKeyword(keyword, tableType) {
+    const jobDescription = document.getElementById('job_description').value;
+    const missingKeywordsTable = document.getElementById('missing_keywords_table').getElementsByTagName('tbody')[0];
+    const foundKeywordsTable = document.getElementById('found_keywords_table').getElementsByTagName('tbody')[0];
+    
+    let missingKeywords = {};
+    let foundKeywords = {};
+    
+    Array.from(missingKeywordsTable.rows).forEach(row => {
+        const keyword = row.cells[0].textContent;
+        const count = parseInt(row.cells[1].textContent);
+        missingKeywords[keyword] = count;
+    });
+    
+    Array.from(foundKeywordsTable.rows).forEach(row => {
+        const keyword = row.cells[0].textContent;
+        const count = parseInt(row.cells[1].textContent);
+        foundKeywords[keyword] = count;
+    });
+
+    try {
+        let response = await fetch('/delete_keyword', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                job_description: jobDescription,
+                found_keywords: foundKeywords,
+                missing_keywords: missingKeywords,
+                keyword: keyword,
+                table: tableType
+            })
+        });
+
+        if (response.ok) {
+            let result = await response.json();
+            if (result.error) {
+                alert(result.error);
+            } else {
+                updateResults(result);
+            }
+        } else {
+            alert('Error recalculating score');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('An error occurred while recalculating the score.');
     }
 }
 
-function showResults(tabName) {
-    // Hide all tab content
-    document.querySelectorAll('.tab-content').forEach(tab => {
-        tab.classList.add('hidden');
+function showResults(tab) {
+    let missingTab = document.getElementById('missing');
+    let foundTab = document.getElementById('found');
+    let missingButton = document.querySelector('.tab-button:nth-child(1)');
+    let foundButton = document.querySelector('.tab-button:nth-child(2)');
+
+    if (tab === 'missing') {
+        missingTab.classList.remove('hidden');
+        foundTab.classList.add('hidden');
+        missingButton.classList.add('active');
+        foundButton.classList.remove('active');
+    } else {
+        foundTab.classList.remove('hidden');
+        missingTab.classList.add('hidden');
+        foundButton.classList.add('active');
+        missingButton.classList.remove('active');
+    }
+}
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('uploadForm').onsubmit = async function (e) {
+        e.preventDefault();
+        let formData = new FormData(this);
+
+        try {
+            let response = await fetch('/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (response.ok) {
+                let result = await response.json();
+                if (result.error) {
+                    alert(result.error);
+                } else {
+                    updateResults(result);
+                }
+            } else {
+                alert('Error uploading file');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('An error occurred while uploading the file.');
+        }
+    };
+});
+
+function getScoreColor(score) {
+    const red = Math.min(255, 255 - Math.round(score * 2.55));
+    const green = Math.min(255, Math.round(score * 2.55));
+    return `rgb(${red}, ${green}, 0)`;
+}
+
+function updateTable(table, data, tableType) {
+    table.innerHTML = '';
+    Object.keys(data).forEach(keyword => {
+        let row = table.insertRow();
+        let keywordCell = row.insertCell(0);
+        let countCell = row.insertCell(1);
+        let deleteCell = row.insertCell(2);
+
+        keywordCell.textContent = keyword;
+        countCell.textContent = data[keyword];
+        deleteCell.innerHTML = `<button onclick="deleteKeyword('${keyword}', '${tableType}')">Delete</button>`;
+    });
+}
+
+function updateResults(result) {
+    const scoreElement = document.getElementById('score');
+    const score = result.score.toFixed(2); // Display score as a percentage
+    scoreElement.innerHTML = `<span class="score" style="color: ${getScoreColor(score)};">Resume Score: ${score}%</span>`;
+    scoreElement.style.display = 'block';
+
+    const missingKeywordsTable = document.getElementById('missing_keywords_table').getElementsByTagName('tbody')[0];
+    const foundKeywordsTable = document.getElementById('found_keywords_table').getElementsByTagName('tbody')[0];
+
+    updateTable(missingKeywordsTable, result.missing_keywords, 'missing');
+    updateTable(foundKeywordsTable, result.found_keywords, 'found');
+
+    document.getElementById('results').classList.remove('hidden');
+}
+
+async function deleteKeyword(keyword, tableType) {
+    const jobDescription = document.getElementById('job_description').value;
+    const missingKeywordsTable = document.getElementById('missing_keywords_table').getElementsByTagName('tbody')[0];
+    const foundKeywordsTable = document.getElementById('found_keywords_table').getElementsByTagName('tbody')[0];
+    
+    let missingKeywords = {};
+    let foundKeywords = {};
+    
+    Array.from(missingKeywordsTable.rows).forEach(row => {
+        const keyword = row.cells[0].textContent;
+        const count = parseInt(row.cells[1].textContent);
+        missingKeywords[keyword] = count;
+    });
+    
+    Array.from(foundKeywordsTable.rows).forEach(row => {
+        const keyword = row.cells[0].textContent;
+        const count = parseInt(row.cells[1].textContent);
+        foundKeywords[keyword] = count;
     });
 
-    // Show the selected tab content
-    document.getElementById(tabName).classList.remove('hidden');
+    try {
+        let response = await fetch('/delete_keyword', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                job_description: jobDescription,
+                found_keywords: foundKeywords,
+                missing_keywords: missingKeywords,
+                keyword: keyword,
+                table: tableType
+            })
+        });
 
-    // Update tab button states
-    document.querySelectorAll('.tab-button').forEach(button => {
-        button.classList.remove('active');
-    });
-    document.querySelector(`.tab-button[onclick="showResults('${tabName}')"]`).classList.add('active');
+        if (response.ok) {
+            let result = await response.json();
+            if (result.error) {
+                alert(result.error);
+            } else {
+                updateResults(result);
+            }
+        } else {
+            alert('Error recalculating score');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('An error occurred while recalculating the score.');
+    }
+}
+
+function showResults(tab) {
+    let missingTab = document.getElementById('missing');
+    let foundTab = document.getElementById('found');
+    let missingButton = document.querySelector('.tab-button:nth-child(1)');
+    let foundButton = document.querySelector('.tab-button:nth-child(2)');
+
+    if (tab === 'missing') {
+        missingTab.classList.remove('hidden');
+        foundTab.classList.add('hidden');
+        missingButton.classList.add('active');
+        foundButton.classList.remove('active');
+    } else {
+        foundTab.classList.remove('hidden');
+        missingTab.classList.add('hidden');
+        foundButton.classList.add('active');
+        missingButton.classList.remove('active');
+    }
 }
